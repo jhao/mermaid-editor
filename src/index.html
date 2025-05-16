@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Mermaid Editor</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="toolbar">
+        <button id="newFile">新建</button>
+        <button id="openFile">打开</button>
+        <button id="saveFile">保存</button>
+        <button id="exportSVG">导出SVG</button>
+        <button id="exportPNG">导出PNG</button>
+        <select id="themeSelect">
+            <option value="default">默认主题</option>
+            <option value="dark">深色主题</option>
+            <option value="forest">森林主题</option>
+        </select>
+    </div>
+    <div class="container">
+        <div class="editor">
+            <div id="editor"></div>
+            <div id="error-message" class="error-message"></div>
+        </div>
+        <div class="preview">
+            <div id="mermaidOutput"></div>
+        </div>
+    </div>
+    <script src="../node_modules/mermaid/dist/mermaid.min.js"></script>
+    <script type="module" src="renderer.js"></script>
+</body>
+</html>
