@@ -1,85 +1,162 @@
-import { EditorState, EditorView, basicSetup } from "@codemirror/basic-setup"
-import { javascript } from "@codemirror/lang-javascript"
-import { autocompletion } from "@codemirror/autocomplete"
-import { oneDark } from "@codemirror/theme-one-dark"
-
+// ================ 导入依赖 ================
+const { EditorState } = require("@codemirror/state")
+const { EditorView } = require("@codemirror/view")
 const { dialog } = require('@electron/remote')
 const fs = require('fs')
+const { StreamLanguage } = require("@codemirror/language")
+const { markdown } = require("@codemirror/lang-markdown")
+const { history, historyKeymap } = require("@codemirror/commands")
 
-const mermaidInput = document.getElementById('mermaidInput')
-const mermaidOutput = document.getElementById('mermaidOutput')
+// ================ 类型定义 ================
+/**
+ * @typedef {Object} ViewState
+ * @property {number} scale - 缩放比例
+ * @property {number} translateX - X轴平移距离
+ * @property {number} translateY - Y轴平移距离
+ */
 
-// 初始化mermaid
+// ================ 常量定义 ================
+const CONSTANTS = {
+    SCALE: {
+        MIN: 0.5,
+        MAX: 3,
+        STEP: 0.1,
+        DEFAULT: 1
+    },
+    PANEL: {
+        MIN_WIDTH: 200
+    }
+}
+
+// ================ 全局状态 ================
+const globalState = {
+    editor: null,
+    mermaidOutput: document.getElementById('mermaidOutput'),
+    errorMessage: document.getElementById('error-message')
+}
+
+// ================ Mermaid 配置 ================
 mermaid.initialize({ 
     startOnLoad: true,
     theme: 'default',
     securityLevel: 'loose'
 })
 
-// 实时预览功能
-mermaidInput.addEventListener('input', () => {
-    const source = mermaidInput.value
-    mermaidOutput.innerHTML = ''
-    mermaid.render('mermaid-diagram', source)
-        .then(result => {
-            mermaidOutput.innerHTML = result.svg
+// ================ 编辑器相关 ================
+const EditorModule = {
+    init() {
+        globalState.editor = new EditorView({
+            state: EditorState.create({
+                doc: "graph TD\n    A[开始] --> B[结束]",
+                extensions: [
+                    markdown(),
+                    EditorView.lineWrapping,
+                    this.getTheme(),
+                    this.getEventListener()
+                ]
+            }),
+            parent: document.getElementById("editor")
         })
-        .catch(error => {
-            console.error('Error rendering mermaid diagram:', error)
+    },
+
+    getTheme() {
+        return EditorView.theme({
+            "&": {
+                height: "calc(100vh - 100px)",
+                overflow: "auto"
+            },
+            ".cm-content": {
+                fontFamily: "monospace"
+            },
+            ".cm-line": {
+                padding: "0 3px",
+                lineHeight: "1.6"
+            }
         })
-})
+    },
 
-// 新建文件
-document.getElementById('newFile').addEventListener('click', () => {
-    mermaidInput.value = ''
-    mermaidOutput.innerHTML = ''
-})
-
-// 打开文件
-document.getElementById('openFile').addEventListener('click', async () => {
-    const result = await dialog.showOpenDialog({
-        filters: [
-            { name: 'Mermaid Files', extensions: ['mmd', 'txt'] },
-            { name: 'All Files', extensions: ['*'] }
-        ]
-    })
-
-    if (!result.canceled && result.filePaths.length > 0) {
-        const content = fs.readFileSync(result.filePaths[0], 'utf-8')
-        mermaidInput.value = content
-        mermaidInput.dispatchEvent(new Event('input'))
+    getEventListener() {
+        return EditorView.updateListener.of(update => {
+            if (update.focusChanged && !update.view.hasFocus) {
+                const content = update.state.doc.toString()
+                renderMermaid(content)
+                console.log('编辑器失去焦点，更新图表')
+            }
+        })
     }
-})
+}
 
-// 保存文件
-document.getElementById('saveFile').addEventListener('click', async () => {
+// ================ 文件操作相关 ================
+const FileModule = {
+    init() {
+        document.getElementById('newFile').addEventListener('click', this.handleNew)
+        document.getElementById('openFile').addEventListener('click', this.handleOpen)
+        document.getElementById('saveFile').addEventListener('click', this.handleSave)
+        document.getElementById('exportSVG').addEventListener('click', this.handleExportSVG)
+        document.getElementById('exportPNG').addEventListener('click', this.handleExportPNG)
+    },
+
+    handleNew() {
+        console.log('点击新建文件按钮')
+        globalState.editor.dispatch({
+            changes: {
+                from: 0,
+                to: globalState.editor.state.doc.length,
+                insert: ''
+            }
+        })
+    },
+
+    async handleOpen() {
+        console.log('点击打开文件按钮')
+        const result = await dialog.showOpenDialog({
+            filters: [
+                { name: 'Mermaid Files', extensions: ['mmd', 'txt'] },
+                { name: 'All Files', extensions: ['*'] }
+            ]
+        })
+
+        if (!result.canceled && result.filePaths.length > 0) {
+            const content = fs.readFileSync(result.filePaths[0], 'utf-8')
+            editor.dispatch({
+                changes: {
+                    from: 0,
+                    to: editor.state.doc.length,
+                    insert: content
+                }
+            })
+            console.log(`已打开文件: ${result.filePaths[0]}`)
+        }
+    }
+}
+
+async function handleSave() {
+    console.log('点击保存文件按钮')
     const result = await dialog.showSaveDialog({
-        filters: [
-            { name: 'Mermaid Files', extensions: ['mmd'] }
-        ]
+        filters: [{ name: 'Mermaid Files', extensions: ['mmd'] }]
     })
 
     if (!result.canceled) {
-        fs.writeFileSync(result.filePath, mermaidInput.value)
+        fs.writeFileSync(result.filePath, editor.state.doc.toString())
+        console.log(`文件已保存: ${result.filePath}`)
     }
-})
+}
 
-// 导出SVG
-document.getElementById('exportSVG').addEventListener('click', async () => {
+async function handleExportSVG() {
+    console.log('点击导出SVG按钮')
     const result = await dialog.showSaveDialog({
-        filters: [
-            { name: 'SVG Files', extensions: ['svg'] }
-        ]
+        filters: [{ name: 'SVG Files', extensions: ['svg'] }]
     })
 
     if (!result.canceled) {
         const svg = mermaidOutput.innerHTML
         fs.writeFileSync(result.filePath, svg)
+        console.log(`SVG已导出: ${result.filePath}`)
     }
-})
+}
 
-// 导出PNG
-document.getElementById('exportPNG').addEventListener('click', async () => {
+async function handleExportPNG() {
+    console.log('点击导出PNG按钮')
     const svg = mermaidOutput.querySelector('svg')
     const canvas = document.createElement('canvas')
     const ctx = canvas.getContext('2d')
@@ -92,9 +169,7 @@ document.getElementById('exportPNG').addEventListener('click', async () => {
         ctx.drawImage(img, 0, 0)
         
         const result = await dialog.showSaveDialog({
-            filters: [
-                { name: 'PNG Files', extensions: ['png'] }
-            ]
+            filters: [{ name: 'PNG Files', extensions: ['png'] }]
         })
 
         if (!result.canceled) {
@@ -105,118 +180,24 @@ document.getElementById('exportPNG').addEventListener('click', async () => {
     }
 
     img.src = 'data:image/svg+xml;base64,' + btoa(svgData)
-})
-
-
-// Mermaid 语法提示
-const mermaidCompletions = {
-    graph: {
-        label: "graph",
-        detail: "流程图",
-        info: "创建一个流程图"
-    },
-    sequenceDiagram: {
-        label: "sequenceDiagram",
-        detail: "时序图",
-        info: "创建一个时序图"
-    },
-    classDiagram: {
-        label: "classDiagram",
-        detail: "类图",
-        info: "创建一个类图"
-    },
-    // 更多补全项...
 }
 
-// 自动补全配置
-const mermaidLanguage = {
-    autocomplete: context => {
-        let word = context.matchBefore(/\w*/)
-        if (!word) return null
-        return {
-            from: word.from,
-            options: Object.values(mermaidCompletions)
-        }
-    }
-}
-
-// 创建编辑器
-let editor = new EditorView({
-    state: EditorState.create({
-        doc: "",
-        extensions: [
-            basicSetup,
-            javascript(),
-            autocompletion(),
-            mermaidLanguage,
-            oneDark,
-            EditorView.updateListener.of(update => {
-                if (update.docChanged) {
-                    renderMermaid(update.state.doc.toString())
-                }
-            })
-        ]
-    }),
-    parent: document.getElementById("editor")
-})
-
-// 新建文件
-document.getElementById('newFile').addEventListener('click', () => {
-    editor.dispatch({
-        changes: {
-            from: 0,
-            to: editor.state.doc.length,
-            insert: ''
-        }
-    })
-})
-
-// 打开文件
-document.getElementById('openFile').addEventListener('click', async () => {
-    const result = await dialog.showOpenDialog({
-        filters: [
-            { name: 'Mermaid Files', extensions: ['mmd', 'txt'] },
-            { name: 'All Files', extensions: ['*'] }
-        ]
-    })
-
-    if (!result.canceled && result.filePaths.length > 0) {
-        const content = fs.readFileSync(result.filePaths[0], 'utf-8')
-        editor.dispatch({
-            changes: {
-                from: 0,
-                to: editor.state.doc.length,
-                insert: content
-            }
+// ================ 主题相关 ================
+// 初始化主题切换
+function initThemeSwitch() {
+    document.getElementById('themeSelect').addEventListener('change', (event) => {
+        const theme = event.target.value
+        console.log(`切换主题: ${theme}`)
+        mermaid.initialize({ 
+            startOnLoad: true,
+            theme: theme
         })
-    }
-})
-
-// 保存文件
-document.getElementById('saveFile').addEventListener('click', async () => {
-    const result = await dialog.showSaveDialog({
-        filters: [
-            { name: 'Mermaid Files', extensions: ['mmd'] }
-        ]
+        document.body.className = `theme-${theme}`
+        renderMermaid(globalState.editor.state.doc.toString())
     })
+}
 
-    if (!result.canceled) {
-        fs.writeFileSync(result.filePath, editor.state.doc.toString())
-    }
-})
-
-// 主题切换
-const themeSelect = document.getElementById('themeSelect')
-themeSelect.addEventListener('change', () => {
-    const theme = themeSelect.value
-    mermaid.initialize({ 
-        startOnLoad: true,
-        theme: theme
-    })
-    document.body.className = `theme-${theme}`
-    renderMermaid(editor.state.doc.toString())
-})
-
+// ================ Mermaid 图表相关 ================
 // 渲染 Mermaid 图表
 function renderMermaid(source) {
     const output = document.getElementById('mermaidOutput')
@@ -229,13 +210,309 @@ function renderMermaid(source) {
         mermaid.render('mermaid-diagram', source)
             .then(result => {
                 output.innerHTML = result.svg
+                initSvgInteraction(output)
             })
             .catch(error => {
-                errorMessage.textContent = `错误: ${error.message}`
+                const errorMsg = `错误: ${error.message}`
+                errorMessage.textContent = errorMsg
                 errorMessage.classList.add('show')
+                console.error(errorMsg)
             })
     } catch (error) {
-        errorMessage.textContent = `错误: ${error.message}`
+        const errorMsg = `错误: ${error.message}`
+        errorMessage.textContent = errorMsg
         errorMessage.classList.add('show')
+        console.error(errorMsg)
     }
 }
+
+// ================ SVG 元素交互相关 ================
+function initElementInteractions(svg) {
+    const elements = svg.querySelectorAll('g.node, g.edge, g.cluster')
+    
+    elements.forEach(element => {
+        // 添加点击选择功能
+        element.addEventListener('click', (e) => {
+            e.stopPropagation()
+            // 移除其他元素的选中状态
+            elements.forEach(el => el.classList.remove('selected'))
+            // 添加当前元素的选中状态
+            element.classList.add('selected')
+        })
+
+        // 添加右键菜单
+        element.addEventListener('contextmenu', (e) => {
+            e.preventDefault()
+            e.stopPropagation()
+            
+            // 移除已存在的菜单
+            const existingMenu = document.querySelector('.context-menu')
+            if (existingMenu) {
+                existingMenu.remove()
+            }
+            
+            // 创建右键菜单
+            const contextMenu = document.createElement('div')
+            contextMenu.className = 'context-menu'
+            
+            // 根据元素类型显示不同的菜单选项
+            if (element.classList.contains('cluster')) {
+                contextMenu.innerHTML = `
+                    <div class="menu-item">移动 Subgraph</div>
+                    <div class="menu-item">调整大小</div>
+                `
+            } else {
+                contextMenu.innerHTML = `
+                    <div class="menu-item">移动位置</div>
+                `
+            }
+            
+            // 设置菜单位置
+            contextMenu.style.left = `${e.clientX}px`
+            contextMenu.style.top = `${e.clientY}px`
+            document.body.appendChild(contextMenu)
+
+            // 点击其他地方关闭菜单
+            const closeMenu = (e) => {
+                if (!contextMenu.contains(e.target)) {
+                    contextMenu.remove()
+                    document.removeEventListener('click', closeMenu)
+                }
+            }
+            document.addEventListener('click', closeMenu)
+        })
+    })
+}
+
+// ================ SVG 交互相关 ================
+// SVG 交互功能初始化
+function initSvgInteraction(container) {
+    const svg = container.querySelector('svg')
+    if (!svg) return
+
+    // 修改状态对象的初始化方式
+    const state = {
+        scale: 1,
+        translateX: 0,
+        translateY: 0,
+        isMinimapDragging: false
+    }
+    
+    initSvgZoom(container, svg, state)
+    initSvgDrag(container, svg, state)
+    initElementInteractions(svg)
+    initMinimap(container, svg, state)
+}
+
+// 初始化缩放功能
+function initSvgZoom(container, svg, state) {
+    const scaleStep = 0.1
+    const minScale = 0.5
+    const maxScale = 3
+
+    container.addEventListener('wheel', (e) => {
+        e.preventDefault()
+        const delta = e.deltaY > 0 ? -scaleStep : scaleStep
+        state.scale = Math.min(Math.max(state.scale + delta, minScale), maxScale)
+        svg.style.transform = `scale(${state.scale}) translate(${state.translateX}px, ${state.translateY}px)`
+        console.log(`图表缩放: ${Math.round(state.scale * 100)}%`)
+    })
+}
+
+// 初始化拖拽功能
+function initSvgDrag(container, svg, state) {
+    let isDragging = false
+    let startX, startY
+
+    container.style.cursor = 'grab'
+    svg.style.transformOrigin = 'center'
+    svg.style.transition = 'transform 0.1s'
+
+    container.addEventListener('mousedown', (e) => {
+        // 如果小地图正在拖拽，不启动SVG拖拽
+        if (state.isMinimapDragging) return;
+        
+        isDragging = true;
+        startX = e.clientX - state.translateX;
+        startY = e.clientY - state.translateY;
+        container.style.cursor = 'grabbing';
+    });
+
+    container.addEventListener('mousemove', (e) => {
+        if (!isDragging) return
+        state.translateX = e.clientX - startX
+        state.translateY = e.clientY - startY
+        svg.style.transform = `scale(${state.scale}) translate(${state.translateX}px, ${state.translateY}px)`
+    })
+
+    container.addEventListener('mouseup', () => {
+        isDragging = false
+        container.style.cursor = 'grab'
+    })
+
+    container.addEventListener('mouseleave', () => {
+        isDragging = false
+        container.style.cursor = 'grab'
+    })
+}
+
+// ================ 小地图相关 ================
+function initMinimap(container, svg, state) {
+    const minimap = createMinimapElements()
+    container.appendChild(minimap.container)
+    
+    initMinimapDrag(minimap.viewport, svg, state)
+    updateMinimapViewport(container, svg, minimap, state)
+    
+    let isMinimapDragging = false // 添加小地图专用的拖拽状态变量
+    
+    // 在缩放和拖拽时更新小地图
+    container.addEventListener('wheel', () => updateMinimapViewport(container, svg, minimap, state))
+    container.addEventListener('mousemove', () => {
+        if (isMinimapDragging) { // 使用小地图专用的拖拽状态变量
+            updateMinimapViewport(container, svg, minimap, state)
+        }
+    })
+}
+
+// 添加小地图拖拽功能
+function initMinimapDrag(viewport, svg, state) {
+    let minimapDragging = false
+    let minimapStartX, minimapStartY
+
+    viewport.addEventListener('mousedown', (e) => {
+        minimapDragging = true;
+        minimapStartX = e.clientX - viewport.offsetLeft;
+        minimapStartY = e.clientY - viewport.offsetTop;
+        state.isMinimapDragging = true;
+        e.stopPropagation();
+        e.preventDefault();
+    });
+
+    document.addEventListener('mousemove', (e) => {
+        if (!minimapDragging) return
+        
+        e.stopPropagation()
+        e.preventDefault()
+        
+        const containerRect = viewport.parentElement.getBoundingClientRect()
+        const svgRect = svg.getBoundingClientRect()
+        const scaleX = svgRect.width / viewport.parentElement.offsetWidth
+        const scaleY = svgRect.height / viewport.parentElement.offsetHeight
+        
+        const x = e.clientX - minimapStartX
+        const y = e.clientY - minimapStartY
+        
+        state.translateX = -(x * scaleX)
+        state.translateY = -(y * scaleY)
+        
+        // 使用状态中保存的缩放值
+        svg.style.transform = `scale(${state.scale}) translate(${state.translateX}px, ${state.translateY}px)`
+        
+        updateMinimapViewport(viewport.parentElement.parentElement, svg, {
+            viewport,
+            container: viewport.parentElement.parentElement,
+            content: viewport.parentElement
+        }, state)
+    });
+
+    document.addEventListener('mouseup', (e) => {
+        if (minimapDragging) {
+            e.stopPropagation();
+            e.preventDefault();
+        }
+        minimapDragging = false;
+        state.isMinimapDragging = false; // 清除全局状态标记
+    });
+}
+
+// 更新小地图视口
+function updateMinimapViewport(container, svg, minimap, state) {
+    const containerRect = container.getBoundingClientRect()
+    const svgRect = svg.getBoundingClientRect()
+    
+    // 计算缩放比例
+    const scaleX = minimap.container.offsetWidth / svgRect.width
+    const scaleY = minimap.container.offsetHeight / svgRect.height
+    
+    // 计算视口大小和位置
+    const viewportWidth = Math.min(minimap.container.offsetWidth, 
+                                 minimap.container.offsetWidth * (containerRect.width / svgRect.width))
+    const viewportHeight = Math.min(minimap.container.offsetHeight, 
+                                  minimap.container.offsetHeight * (containerRect.height / svgRect.height))
+    
+    // 计算视口位置
+    const viewportX = (-state.translateX * scaleX) + (minimap.container.offsetWidth - viewportWidth) / 2
+    const viewportY = (-state.translateY * scaleY) + (minimap.container.offsetHeight - viewportHeight) / 2
+    
+    // 更新视口样式
+    minimap.viewport.style.width = `${viewportWidth}px`
+    minimap.viewport.style.height = `${viewportHeight}px`
+    minimap.viewport.style.left = `${viewportX}px`
+    minimap.viewport.style.top = `${viewportY}px`
+}
+
+function createMinimapElements() {
+    const container = document.createElement('div')
+    container.className = 'minimap'
+    
+    const content = document.createElement('div')
+    content.className = 'minimap-content'
+    
+    const viewport = document.createElement('div')
+    viewport.className = 'minimap-viewport'
+    
+    content.appendChild(viewport)
+    container.appendChild(content)
+    
+    return { container, content, viewport }
+}
+
+// ================ 面板拖拽相关 ================
+// ...
+
+// ================ 分隔条相关 ================
+function initResizer() {
+    const container = document.querySelector('.container');
+    const editor = document.querySelector('.editor');
+    const resizer = document.createElement('div');
+    const preview = document.querySelector('.preview');
+    
+    resizer.className = 'resizer';
+    container.insertBefore(resizer, preview);
+    
+    let isResizing = false;
+    let startX;
+    let startWidth;
+    
+    resizer.addEventListener('mousedown', (e) => {
+        isResizing = true;
+        startX = e.pageX;
+        startWidth = editor.offsetWidth;
+        container.classList.add('resizing');
+    });
+    
+    document.addEventListener('mousemove', (e) => {
+        if (!isResizing) return;
+        
+        const width = startWidth + (e.pageX - startX);
+        if (width >= CONSTANTS.PANEL.MIN_WIDTH) {
+            editor.style.width = `${width}px`;
+            editor.style.flex = 'none';
+        }
+    });
+    
+    document.addEventListener('mouseup', () => {
+        isResizing = false;
+        container.classList.remove('resizing');
+    });
+}
+
+// 在文档加载完成后初始化所有功能
+document.addEventListener('DOMContentLoaded', () => {
+    EditorModule.init();
+    FileModule.init();
+    initThemeSwitch();
+    initResizer(); // 添加分隔条初始化
+    console.log("应用初始化完成")
+});

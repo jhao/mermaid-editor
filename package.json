@@ -4,7 +4,8 @@
   "description": "本地版Mermaid编辑器",
   "main": "main.js",
   "scripts": {
-    "start": "electron ."
+    "start": "electron --inspect=5858 .",
+    "start:debug": "electron --inspect-brk=5858 ."
   },
   "author": "",
   "license": "ISC",
@@ -12,9 +13,13 @@
     "electron": "^28.0.0",
     "@electron/remote": "^2.0.10",
     "mermaid": "^10.6.1",
-    "codemirror": "^6.0.1",
+    "@codemirror/commands": "^6.0.0",
+    "@codemirror/state": "^6.0.0",
+    "@codemirror/view": "^6.0.0",
+    "@codemirror/language": "^6.0.0",
+    "@codemirror/lang-markdown": "^6.0.0",
     "@codemirror/lang-javascript": "^6.2.1",
-    "@codemirror/autocomplete": "^6.11.1",
-    "@codemirror/theme-one-dark": "^6.1.2"
+    "@codemirror/theme-one-dark": "^6.1.2",
+    "@codemirror/autocomplete": "^6.0.0"
   }
 }

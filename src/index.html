@@ -3,6 +3,15 @@
 <head>
     <title>Mermaid Editor</title>
     <link rel="stylesheet" href="styles.css">
+    <style>
+        .cm-editor {
+            height: 100%;
+            border: 1px solid #ddd;
+        }
+        .cm-scroller {
+            height: 100% !important;
+        }
+    </style>
 </head>
 <body>
     <div class="toolbar">
@@ -27,6 +36,6 @@
         </div>
     </div>
     <script src="../node_modules/mermaid/dist/mermaid.min.js"></script>
-    <script type="module" src="renderer.js"></script>
+    <script src="renderer.js"></script>
 </body>
 </html>

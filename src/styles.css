@@ -35,11 +35,36 @@ body {
     padding: 10px;
 }
 
+/* 小地图容器 */
+.minimap {
+    position: absolute;
+    bottom: 20px;
+    right: 20px;
+    width: 150px;
+    height: 100px;
+    border: 1px solid #ddd;
+    background: white;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    overflow: hidden;
+    z-index: 1000;
+}
+
+.minimap-content {
+    position: relative;
+    width: 100%;
+    height: 100%;
+}
+
+.minimap-viewport {
+    position: absolute;
+    background: rgba(0,0,0,0.2);
+    border: 1px solid rgba(0,0,0,0.3);
+    cursor: move;
+}
+
+/* 确保预览区域有相对定位 */
 .preview {
-    flex: 1;
-    padding: 20px;
-    overflow: auto;
-    background-color: white;
+    position: relative;
 }
 
 #mermaidOutput {
@@ -91,6 +116,262 @@ body {
     border-color: #1e1e1e;
 }
 
+/* 深色主题样式 - 只影响预览区域 */
 .theme-dark .preview {
     background-color: #1e1e1e;
+    color: #d4d4d4;
+}
+
+.theme-dark .preview svg {
+    filter: invert(0.9);
+}
+
+/* 移除之前的全局主题样式 */
+.theme-dark {
+    /* 移除这些全局样式 */
+    /* background-color: #1e1e1e; */
+    /* color: #d4d4d4; */
+}
+
+.theme-dark .toolbar {
+    /* 移除工具栏的深色样式 */
+    /* background-color: #2d2d2d; */
+    /* border-color: #1e1e1e; */
+}
+
+/* 移除以下调试面板相关样式 */
+.debug-panel {
+    display: none;
+}
+
+.debug-panel.show {
+    display: none;
+}
+
+.debug-content {
+    display: none;
+}
+
+.container {
+    height: calc(100vh - 50px);  /* 移除调试面板高度变量 */
+}
+
+#editor {
+    position: relative;
+    height: calc(100vh - 70px);
+    overflow: hidden;
+}
+
+.cm-editor {
+    height: 100%;
+    width: 100%;
+}
+
+.cm-scroller {
+    overflow: auto !important;
+}
+#mermaidOutput {
+    position: relative;
+    overflow: hidden;
+    width: 100%;
+    height: 100%;
+}
+
+#mermaidOutput svg {
+    width: 100%;
+    height: 100%;
+}
+
+/* 选中元素的样式 */
+.selected {
+    outline: 2px solid #4CAF50;
+    outline-offset: 2px;
+}
+
+/* cluster 选中和拖拽样式 */
+g.cluster.selected rect {
+    stroke: #4CAF50;
+    stroke-width: 2px;
+}
+
+g.cluster.dragging {
+    opacity: 0.8;
+}
+
+g.cluster.dragging rect {
+    stroke: #666;
+    stroke-dasharray: 4;
+}
+
+/* 防止文本被选中 */
+#mermaidOutput {
+    user-select: none;
+    -webkit-user-select: none;
+}
+
+
+/* 分隔条样式 */
+.resizer {
+    width: 8px;
+    background-color: #f0f0f0;
+    cursor: col-resize;
+    transition: background-color 0.2s;
+    user-select: none;
+    position: relative;
+    z-index: 10;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;  /* 添加高度 */
+}
+
+.resizer::after {
+    content: "⋮";
+    color: #999;
+    font-size: 20px;
+    line-height: 1;
+    transform: rotate(90deg);
+    transition: color 0.2s;
+}
+
+.resizer:hover {
+    background-color: #e0e0e0;
+}
+
+.resizer:hover::after {
+    color: #666;
+}
+
+.resizer.dragging {
+    background-color: #ccc;
+}
+
+.resizer.dragging::after {
+    color: #444;
+}
+
+/* 容器和面板样式 */
+.container {
+    display: flex;
+    height: calc(100vh - 50px);
+    position: relative;
+    overflow: hidden;
+}
+
+.editor,
+.preview {
+    position: relative;
+    min-width: 200px;
+    height: 100%;
+    overflow: hidden;
+}
+
+/* 分隔条样式 */
+.resizer {
+    width: 8px;
+    background-color: #f0f0f0;
+    cursor: col-resize;
+    transition: background-color 0.2s;
+    user-select: none;
+    position: relative;
+    z-index: 10;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+}
+
+.container {
+    display: flex;
+    height: calc(100vh - 50px);
+    position: relative;
+    overflow: hidden;
+}
+
+.editor {
+    position: relative;
+    height: 100%;
+    overflow: hidden;
+}
+
+.preview {
+    flex: 1;
+    position: relative;
+    height: 100%;
+    overflow: hidden;
+}
+
+/* 拖拽时的状态 */
+.container.resizing,
+.container.resizing * {
+    cursor: col-resize !important;
+    user-select: none !important;
+}
+
+.resizer::after {
+    content: "⋮";
+    color: #999;
+    font-size: 20px;
+    line-height: 1;
+    transform: rotate(90deg);
+}
+
+/* 移除可能导致冲突的样式 */
+.container * {
+    user-select: auto;
+}
+
+/* 防止拖拽时文本被选中 */
+.container * {
+    user-select: none;
+}
+
+/* 右键菜单样式 */
+.context-menu {
+    position: fixed;
+    background: white;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    padding: 5px 0;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+    z-index: 1000;
+}
+
+.menu-item {
+    padding: 8px 15px;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.menu-item:hover {
+    background-color: #f5f5f5;
+}
+
+/* 拖拽时的样式 */
+.dragging {
+    opacity: 0.8;
+    cursor: move !important;
+}
+
+/* 深色主题下的右键菜单 */
+.theme-dark .context-menu {
+    background: #2d2d2d;
+    border-color: #444;
+}
+
+.theme-dark .menu-item {
+    color: #fff;
+}
+
+.theme-dark .menu-item:hover {
+    background-color: #3d3d3d;
+}
+
+.container.resizing {
+    cursor: col-resize;
+}
+
+.editor, .preview {
+    flex: 1;
+    min-width: 200px; /* 设置最小宽度，防止面板被完全收起 */
 }
