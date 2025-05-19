@@ -91,9 +91,9 @@ const FileModule = {
     init() {
         document.getElementById('newFile').addEventListener('click', this.handleNew)
         document.getElementById('openFile').addEventListener('click', this.handleOpen)
-        document.getElementById('saveFile').addEventListener('click', this.handleSave)
-        document.getElementById('exportSVG').addEventListener('click', this.handleExportSVG)
-        document.getElementById('exportPNG').addEventListener('click', this.handleExportPNG)
+        document.getElementById('saveFile').addEventListener('click', () => handleSave(globalState.editor))
+        document.getElementById('exportSVG').addEventListener('click', () => handleExportSVG(globalState.mermaidOutput))
+        document.getElementById('exportPNG').addEventListener('click', () => handleExportPNG(globalState.mermaidOutput))
     },
 
     handleNew() {
@@ -130,7 +130,7 @@ const FileModule = {
     }
 }
 
-async function handleSave() {
+async function handleSave(editor) {
     console.log('点击保存文件按钮')
     const result = await dialog.showSaveDialog({
         filters: [{ name: 'Mermaid Files', extensions: ['mmd'] }]
@@ -142,44 +142,106 @@ async function handleSave() {
     }
 }
 
-async function handleExportSVG() {
+async function handleExportSVG(mermaidOutput) {
     console.log('点击导出SVG按钮')
     const result = await dialog.showSaveDialog({
         filters: [{ name: 'SVG Files', extensions: ['svg'] }]
     })
 
-    if (!result.canceled) {
-        const svg = mermaidOutput.innerHTML
-        fs.writeFileSync(result.filePath, svg)
+    if (!result.canceled && mermaidOutput) {
+        // 获取SVG元素
+        const svg = mermaidOutput.querySelector('svg')
+        if (!svg) {
+            console.error('未找到SVG元素')
+            return
+        }
+        
+        // 添加XML声明和DOCTYPE
+        const svgContent = '<?xml version="1.0" encoding="UTF-8" standalone="no"?>\n' +
+                         '<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">\n' +
+                         svg.outerHTML
+        
+        fs.writeFileSync(result.filePath, svgContent, 'utf-8')
         console.log(`SVG已导出: ${result.filePath}`)
     }
 }
 
-async function handleExportPNG() {
+async function handleExportPNG(mermaidOutput) {
     console.log('点击导出PNG按钮')
-    const svg = mermaidOutput.querySelector('svg')
-    const canvas = document.createElement('canvas')
-    const ctx = canvas.getContext('2d')
-    const svgData = new XMLSerializer().serializeToString(svg)
-    const img = new Image()
-    
-    img.onload = async () => {
-        canvas.width = img.width
-        canvas.height = img.height
-        ctx.drawImage(img, 0, 0)
+    try {
+        const source = globalState.editor.state.doc.toString()
         
+        // 使用mermaid渲染新的SVG
+        const { svg } = await mermaid.render('mermaid-export', source)
+        
+        // 创建一个临时的容器
+        const tempContainer = document.createElement('div')
+        tempContainer.style.visibility = 'hidden'
+        tempContainer.style.position = 'absolute'
+        tempContainer.style.left = '-9999px'
+        document.body.appendChild(tempContainer)
+        tempContainer.innerHTML = svg
+        
+        // 获取SVG元素
+        const svgElement = tempContainer.querySelector('svg')
+        if (!svgElement) {
+            throw new Error('无法生成SVG')
+        }
+        
+        // 获取SVG的尺寸
+        const svgWidth = svgElement.viewBox.baseVal.width || svgElement.width.baseVal.value || 800
+        const svgHeight = svgElement.viewBox.baseVal.height || svgElement.height.baseVal.value || 600
+        
+        // 设置SVG的尺寸
+        svgElement.setAttribute('width', svgWidth)
+        svgElement.setAttribute('height', svgHeight)
+        
+        // 将SVG转换为base64编码的数据URL
+        const svgString = new XMLSerializer().serializeToString(svgElement)
+        const svgBase64 = btoa(unescape(encodeURIComponent(svgString)))
+        const dataUrl = `data:image/svg+xml;base64,${svgBase64}`
+        
+        // 创建图片并等待加载
+        const img = new Image()
+        await new Promise((resolve, reject) => {
+            img.onload = resolve
+            img.onerror = reject
+            img.src = dataUrl
+        })
+        
+        // 创建canvas
+        const canvas = document.createElement('canvas')
+        canvas.width = svgWidth * 2  // 增加分辨率
+        canvas.height = svgHeight * 2
+        
+        const ctx = canvas.getContext('2d')
+        ctx.scale(2, 2)  // 设置缩放以提高清晰度
+        
+        // 绘制白色背景
+        ctx.fillStyle = '#ffffff'
+        ctx.fillRect(0, 0, svgWidth, svgHeight)
+        
+        // 绘制图像
+        ctx.drawImage(img, 0, 0, svgWidth, svgHeight)
+        
+        // 导出对话框
         const result = await dialog.showSaveDialog({
             filters: [{ name: 'PNG Files', extensions: ['png'] }]
         })
-
+        
         if (!result.canceled) {
-            const buffer = canvas.toDataURL('image/png')
-            const base64Data = buffer.replace(/^data:image\/png;base64,/, '')
-            fs.writeFileSync(result.filePath, base64Data, 'base64')
+            // 获取PNG数据并保存
+            const pngData = canvas.toDataURL('image/png', 1.0)
+            const base64Data = pngData.replace(/^data:image\/png;base64,/, '')
+            fs.writeFileSync(result.filePath, Buffer.from(base64Data, 'base64'))
+            console.log(`PNG已导出: ${result.filePath}`)
         }
+        
+        // 清理资源
+        document.body.removeChild(tempContainer)
+    } catch (error) {
+        console.error('导出PNG时发生错误:', error)
     }
-
-    img.src = 'data:image/svg+xml;base64,' + btoa(svgData)
 }
 
 // ================ 主题相关 ================

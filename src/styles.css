@@ -225,14 +225,6 @@ g.cluster.dragging rect {
     height: 100%;  /* 添加高度 */
 }
 
-.resizer::after {
-    content: "⋮";
-    color: #999;
-    font-size: 20px;
-    line-height: 1;
-    transform: rotate(90deg);
-    transition: color 0.2s;
-}
 
 .resizer:hover {
     background-color: #e0e0e0;
@@ -306,14 +298,6 @@ g.cluster.dragging rect {
 .container.resizing * {
     cursor: col-resize !important;
     user-select: none !important;
-}
-
-.resizer::after {
-    content: "⋮";
-    color: #999;
-    font-size: 20px;
-    line-height: 1;
-    transform: rotate(90deg);
 }
 
 /* 移除可能导致冲突的样式 */
