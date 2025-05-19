@@ -1,7 +1,7 @@
 {
   "name": "mermaid-editor",
   "version": "1.0.0",
-  "description": "本地版Mermaid编辑器",
+  "description": "本地版Mermaid编辑器，完全依托Claude-3.5-sonnet完成，由人根据生成的程序，不断的反馈测试结果",
   "main": "main.js",
   "scripts": {
     "start": "electron --inspect=5858 .",
