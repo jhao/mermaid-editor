@@ -376,6 +376,78 @@ g.cluster.dragging rect {
     font-size: 12px;
 }
 
+.graph-modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.35);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 2000;
+}
+
+.graph-modal {
+    width: 320px;
+    background: #ffffff;
+    border-radius: 8px;
+    box-shadow: 0 12px 32px rgba(15, 23, 42, 0.18);
+    padding: 20px;
+    box-sizing: border-box;
+}
+
+.graph-modal-title {
+    font-size: 16px;
+    font-weight: 600;
+    margin-bottom: 12px;
+    color: #1f2937;
+}
+
+.graph-modal-input {
+    width: 100%;
+    padding: 8px 10px;
+    border: 1px solid #d1d5db;
+    border-radius: 4px;
+    font-size: 14px;
+    box-sizing: border-box;
+    margin-bottom: 16px;
+}
+
+.graph-modal-input:focus {
+    outline: none;
+    border-color: #1a73e8;
+    box-shadow: 0 0 0 2px rgba(26, 115, 232, 0.15);
+}
+
+.graph-modal-buttons {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+}
+
+.graph-modal-button {
+    padding: 6px 14px;
+    border-radius: 4px;
+    border: 1px solid #c0c4cc;
+    background: #fff;
+    cursor: pointer;
+    transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+}
+
+.graph-modal-button:hover {
+    background: #f3f4f6;
+}
+
+.graph-modal-button.primary {
+    background: #1a73e8;
+    border-color: #1a73e8;
+    color: #fff;
+}
+
+.graph-modal-button.primary:hover {
+    background: #1557b0;
+    border-color: #1557b0;
+}
+
 .editor,
 .preview {
     position: relative;

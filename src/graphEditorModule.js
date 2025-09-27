@@ -81,6 +81,84 @@ const GraphEditorModule = (() => {
         updateMermaid()
     }
 
+    function requestNodeLabel(message, defaultValue) {
+        if (typeof window !== 'undefined' && typeof window.prompt === 'function') {
+            return Promise.resolve(window.prompt(message, defaultValue))
+        }
+
+        return new Promise(resolve => {
+            const existingOverlay = document.querySelector('.graph-modal-overlay')
+            if (existingOverlay) {
+                existingOverlay.remove()
+            }
+
+            const overlay = document.createElement('div')
+            overlay.className = 'graph-modal-overlay'
+
+            const modal = document.createElement('div')
+            modal.className = 'graph-modal'
+
+            const title = document.createElement('div')
+            title.className = 'graph-modal-title'
+            title.textContent = message
+
+            const input = document.createElement('input')
+            input.type = 'text'
+            input.className = 'graph-modal-input'
+            input.value = defaultValue || ''
+
+            const buttons = document.createElement('div')
+            buttons.className = 'graph-modal-buttons'
+
+            const cancelButton = document.createElement('button')
+            cancelButton.className = 'graph-modal-button'
+            cancelButton.textContent = '取消'
+
+            const confirmButton = document.createElement('button')
+            confirmButton.className = 'graph-modal-button primary'
+            confirmButton.textContent = '确定'
+
+            function close(value) {
+                overlay.remove()
+                resolve(value)
+            }
+
+            cancelButton.addEventListener('click', () => close(null))
+            confirmButton.addEventListener('click', () => close(input.value))
+
+            input.addEventListener('keydown', event => {
+                if (event.key === 'Enter') {
+                    event.preventDefault()
+                    confirmButton.click()
+                } else if (event.key === 'Escape') {
+                    event.preventDefault()
+                    close(null)
+                }
+            })
+
+            overlay.addEventListener('click', event => {
+                if (event.target === overlay) {
+                    close(null)
+                }
+            })
+
+            buttons.appendChild(cancelButton)
+            buttons.appendChild(confirmButton)
+
+            modal.appendChild(title)
+            modal.appendChild(input)
+            modal.appendChild(buttons)
+
+            overlay.appendChild(modal)
+            document.body.appendChild(overlay)
+
+            requestAnimationFrame(() => {
+                input.focus()
+                input.select()
+            })
+        })
+    }
+
     function buildNetworkOptions() {
         return {
             autoResize: true,
@@ -91,33 +169,37 @@ const GraphEditorModule = (() => {
             manipulation: {
                 enabled: true,
                 addNode: function (nodeData, callback) {
-                    const label = prompt('输入节点名称', `节点${nextNodeIndex}`)
-                    if (label === null) {
-                        callback(null)
-                        return
-                    }
-                    const trimmed = label.trim()
-                    if (!trimmed) {
-                        callback(null)
-                        return
-                    }
-                    nodeData.id = generateNodeId()
-                    nodeData.label = trimmed
-                    callback(nodeData)
+                    requestNodeLabel('输入节点名称', `节点${nextNodeIndex}`)
+                        .then(label => {
+                            if (label === null) {
+                                callback(null)
+                                return
+                            }
+                            const trimmed = label.trim()
+                            if (!trimmed) {
+                                callback(null)
+                                return
+                            }
+                            nodeData.id = generateNodeId()
+                            nodeData.label = trimmed
+                            callback(nodeData)
+                        })
                 },
                 editNode: function (nodeData, callback) {
-                    const label = prompt('编辑节点名称', nodeData.label)
-                    if (label === null) {
-                        callback(null)
-                        return
-                    }
-                    const trimmed = label.trim()
-                    if (!trimmed) {
-                        callback(null)
-                        return
-                    }
-                    nodeData.label = trimmed
-                    callback(nodeData)
+                    requestNodeLabel('编辑节点名称', nodeData.label)
+                        .then(label => {
+                            if (label === null) {
+                                callback(null)
+                                return
+                            }
+                            const trimmed = label.trim()
+                            if (!trimmed) {
+                                callback(null)
+                                return
+                            }
+                            nodeData.label = trimmed
+                            callback(nodeData)
+                        })
                 },
                 addEdge: function (edgeData, callback) {
                     if (!edgeData.from || !edgeData.to) {
