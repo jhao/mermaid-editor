@@ -6,6 +6,7 @@ const fs = require('fs')
 const { StreamLanguage } = require("@codemirror/language")
 const { markdown } = require("@codemirror/lang-markdown")
 const { history, historyKeymap } = require("@codemirror/commands")
+const GraphEditorModule = require('./graphEditorModule')
 
 // ================ 类型定义 ================
 /**
@@ -33,6 +34,12 @@ const globalState = {
     editor: null,
     mermaidOutput: document.getElementById('mermaidOutput'),
     errorMessage: document.getElementById('error-message')
+}
+
+const modeState = {
+    isGraphMode: false,
+    textContainer: null,
+    graphContainer: null
 }
 
 // ================ Mermaid 配置 ================
@@ -286,6 +293,65 @@ function renderMermaid(source) {
         errorMessage.classList.add('show')
         console.error(errorMsg)
     }
+}
+
+function updateMainEditorContent(newContent) {
+    if (!globalState.editor) return
+    const current = globalState.editor.state.doc.toString()
+    if (current === newContent) return
+    globalState.editor.dispatch({
+        changes: {
+            from: 0,
+            to: globalState.editor.state.doc.length,
+            insert: newContent
+        }
+    })
+}
+
+const ModeModule = {
+    init() {
+        modeState.textContainer = document.getElementById('textModeContainer')
+        modeState.graphContainer = document.getElementById('graphEditorContainer')
+
+        const openButton = document.getElementById('openGraphEditor')
+        const exitButton = document.getElementById('exitGraphEditor')
+
+        if (openButton) {
+            openButton.addEventListener('click', () => this.enterGraphMode())
+        }
+
+        if (exitButton) {
+            exitButton.addEventListener('click', () => this.enterTextMode())
+        }
+    },
+
+    enterGraphMode() {
+        if (modeState.isGraphMode) return
+        modeState.isGraphMode = true
+        if (modeState.textContainer) modeState.textContainer.classList.add('hidden')
+        if (modeState.graphContainer) modeState.graphContainer.classList.remove('hidden')
+
+        const source = globalState.editor ? globalState.editor.state.doc.toString() : ''
+        GraphEditorModule.open(source)
+    },
+
+    enterTextMode() {
+        if (!modeState.isGraphMode) return
+        modeState.isGraphMode = false
+        GraphEditorModule.close()
+        if (modeState.graphContainer) modeState.graphContainer.classList.add('hidden')
+        if (modeState.textContainer) modeState.textContainer.classList.remove('hidden')
+
+        const mermaidText = GraphEditorModule.getCurrentMermaid()
+        updateMainEditorContent(mermaidText)
+        renderMermaid(mermaidText)
+    }
+}
+
+function handleGraphMermaidChange(mermaidText) {
+    if (!modeState.isGraphMode) return
+    updateMainEditorContent(mermaidText)
+    renderMermaid(mermaidText)
 }
 
 // ================ SVG 元素交互相关 ================
@@ -576,5 +642,12 @@ document.addEventListener('DOMContentLoaded', () => {
     FileModule.init();
     initThemeSwitch();
     initResizer(); // 添加分隔条初始化
+    if (globalState.editor) {
+        renderMermaid(globalState.editor.state.doc.toString())
+    }
+    GraphEditorModule.init({
+        onMermaidChange: handleGraphMermaidChange
+    })
+    ModeModule.init()
     console.log("应用初始化完成")
 });
