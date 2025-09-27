@@ -3,6 +3,7 @@
 <head>
     <title>Mermaid Editor</title>
     <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="https://unpkg.com/vis-network@9.1.6/styles/vis-network.min.css">
     <style>
         .cm-editor {
             height: 100%;
@@ -20,13 +21,14 @@
         <button id="saveFile">保存</button>
         <button id="exportSVG">导出SVG</button>
         <button id="exportPNG">导出PNG</button>
+        <button id="openGraphEditor">打开该图片编辑</button>
         <select id="themeSelect">
             <option value="default">默认主题</option>
             <option value="dark">深色主题</option>
             <option value="forest">森林主题</option>
         </select>
     </div>
-    <div class="container">
+    <div class="container" id="textModeContainer">
         <div class="editor">
             <div id="editor"></div>
             <div id="error-message" class="error-message"></div>
@@ -35,7 +37,29 @@
             <div id="mermaidOutput"></div>
         </div>
     </div>
+    <div class="container hidden" id="graphEditorContainer">
+        <div class="preview graph-preview">
+            <div class="graph-preview-header">
+                <span>Mermaid 结构预览</span>
+                <button id="exitGraphEditor" class="graph-preview-exit">返回文本编辑</button>
+            </div>
+            <div class="graph-preview-body">
+                <div id="graphModePreview" class="graph-preview-code"></div>
+                <div id="graphPreviewError" class="error-message"></div>
+                <div id="graphPreviewDiagram" class="graph-preview-diagram"></div>
+            </div>
+        </div>
+        <div class="editor graph-editor-panel">
+            <div class="graph-toolbar">
+                <button id="graphModeClear">清空画布</button>
+                <button id="graphModeCenter">居中视图</button>
+            </div>
+            <div id="graphCanvas" class="graph-canvas"></div>
+            <div class="graph-help">使用工具栏的「编辑」按钮添加或连接节点，双击节点可编辑内容。</div>
+        </div>
+    </div>
     <script src="../node_modules/mermaid/dist/mermaid.min.js"></script>
+    <script src="https://unpkg.com/vis-network@9.1.6/standalone/umd/vis-network.min.js"></script>
     <script src="renderer.js"></script>
 </body>
 </html>
