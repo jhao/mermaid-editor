@@ -159,6 +159,33 @@ const GraphEditorModule = (() => {
         })
     }
 
+    function promptForLabel(message, defaultValue) {
+        return requestNodeLabel(message, defaultValue)
+            .then(label => {
+                if (label === null) {
+                    return null
+                }
+                const trimmed = label.trim()
+                if (!trimmed) {
+                    return null
+                }
+                return trimmed
+            })
+    }
+
+    function createNodeData(baseData = {}, label) {
+        const nodeId = generateNodeId()
+        const result = {
+            id: nodeId,
+            label
+        }
+        if (baseData && typeof baseData.x === 'number' && typeof baseData.y === 'number') {
+            result.x = baseData.x
+            result.y = baseData.y
+        }
+        return result
+    }
+
     function buildNetworkOptions() {
         return {
             autoResize: true,
@@ -169,35 +196,24 @@ const GraphEditorModule = (() => {
             manipulation: {
                 enabled: true,
                 addNode: function (nodeData, callback) {
-                    requestNodeLabel('输入节点名称', `节点${nextNodeIndex}`)
+                    promptForLabel('输入节点名称', `节点${nextNodeIndex}`)
                         .then(label => {
-                            if (label === null) {
+                            if (!label) {
                                 callback(null)
                                 return
                             }
-                            const trimmed = label.trim()
-                            if (!trimmed) {
-                                callback(null)
-                                return
-                            }
-                            nodeData.id = generateNodeId()
-                            nodeData.label = trimmed
-                            callback(nodeData)
+                            const prepared = createNodeData(nodeData, label)
+                            callback(prepared)
                         })
                 },
                 editNode: function (nodeData, callback) {
-                    requestNodeLabel('编辑节点名称', nodeData.label)
+                    promptForLabel('编辑节点名称', nodeData.label)
                         .then(label => {
-                            if (label === null) {
+                            if (!label) {
                                 callback(null)
                                 return
                             }
-                            const trimmed = label.trim()
-                            if (!trimmed) {
-                                callback(null)
-                                return
-                            }
-                            nodeData.label = trimmed
+                            nodeData.label = label
                             callback(nodeData)
                         })
                 },
@@ -217,6 +233,7 @@ const GraphEditorModule = (() => {
                 }
             },
             physics: {
+                enabled: false,
                 stabilization: false
             },
             nodes: {
@@ -271,7 +288,7 @@ const GraphEditorModule = (() => {
         if (centerButton) {
             centerButton.addEventListener('click', () => {
                 if (!visAvailable || !network) return
-                network.fit({ animation: { duration: 400 } })
+                network.fit({ animation: false })
             })
         }
     }
@@ -279,9 +296,15 @@ const GraphEditorModule = (() => {
     function bindNetworkEvents() {
         if (!network) return
         network.on('doubleClick', params => {
-            if (!params || !params.nodes || params.nodes.length !== 1) return
-            const nodeId = params.nodes[0]
-            handleEditNode(nodeId)
+            if (!params) return
+            if (params.nodes && params.nodes.length === 1) {
+                const nodeId = params.nodes[0]
+                handleEditNode(nodeId)
+                return
+            }
+            if (params.nodes && params.nodes.length === 0 && (!params.edges || params.edges.length === 0)) {
+                handleCreateNodeAt(params.pointer ? params.pointer.canvas : null)
+            }
         })
     }
 
@@ -289,11 +312,27 @@ const GraphEditorModule = (() => {
         if (!nodesDataSet) return
         const node = nodesDataSet.get(nodeId)
         if (!node) return
-        const label = prompt('编辑节点名称', node.label || node.id)
-        if (label === null) return
-        const trimmed = label.trim()
-        if (!trimmed) return
-        nodesDataSet.update({ id: nodeId, label: trimmed })
+        promptForLabel('编辑节点名称', node.label || node.id)
+            .then(label => {
+                if (!label) return
+                nodesDataSet.update({ id: nodeId, label })
+            })
+    }
+
+    function handleCreateNodeAt(position) {
+        if (!nodesDataSet) return
+        promptForLabel('输入节点名称', `节点${nextNodeIndex}`)
+            .then(label => {
+                if (!label) return
+                const baseData = position && typeof position.x === 'number' && typeof position.y === 'number'
+                    ? { x: position.x, y: position.y }
+                    : {}
+                const newNode = createNodeData(baseData, label)
+                nodesDataSet.add(newNode)
+                if (network) {
+                    network.selectNodes([newNode.id])
+                }
+            })
     }
 
     function attachDatasetListeners() {
@@ -371,11 +410,12 @@ const GraphEditorModule = (() => {
             edgesDataSet.add(parsed.edges)
         }
 
+        applyInitialLayout()
         isLoading = false
         updateMermaid()
         if (network) {
             if (parsed.nodes.length > 0) {
-                network.fit({ animation: { duration: 400 } })
+                network.fit({ animation: false })
             }
         }
     }
@@ -519,6 +559,23 @@ const GraphEditorModule = (() => {
         } catch (error) {
             errorContainer.textContent = `错误: ${error.message}`
             errorContainer.classList.add('show')
+        }
+    }
+
+    function applyInitialLayout() {
+        if (!nodesDataSet) return
+        const nodes = nodesDataSet.get()
+        if (!nodes || nodes.length === 0) return
+        const angleStep = (2 * Math.PI) / nodes.length
+        const radius = 160 + nodes.length * 10
+        const updates = nodes.map((node, index) => ({
+            id: node.id,
+            x: Math.cos(angleStep * index) * radius,
+            y: Math.sin(angleStep * index) * radius
+        }))
+        nodesDataSet.update(updates)
+        if (network) {
+            network.redraw()
         }
     }
 
