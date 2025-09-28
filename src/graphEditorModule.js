@@ -83,7 +83,11 @@ const GraphEditorModule = (() => {
 
     function requestNodeLabel(message, defaultValue) {
         if (typeof window !== 'undefined' && typeof window.prompt === 'function') {
-            return Promise.resolve(window.prompt(message, defaultValue))
+            try {
+                return Promise.resolve(window.prompt(message, defaultValue))
+            } catch (error) {
+                console.warn('GraphEditorModule: window.prompt 调用失败，使用自定义弹窗。', error)
+            }
         }
 
         return new Promise(resolve => {
